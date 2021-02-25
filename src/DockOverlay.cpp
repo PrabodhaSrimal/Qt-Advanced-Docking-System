@@ -1,17 +1,17 @@
 /*******************************************************************************
 ** Qt Advanced Docking System
 ** Copyright (C) 2017 Uwe Kindler
-** 
+**
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Lesser General Public
 ** License as published by the Free Software Foundation; either
 ** version 2.1 of the License, or (at your option) any later version.
-** 
+**
 ** This library is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ** Lesser General Public License for more details.
-** 
+**
 ** You should have received a copy of the GNU Lesser General Public
 ** License along with this library; If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
@@ -333,15 +333,18 @@ CDockOverlay::CDockOverlay(QWidget* parent, eMode Mode) :
 {
 	d->Mode = Mode;
 	d->Cross = new CDockOverlayCross(this);
+	setWindowTitle("DockOverlay");
+
+#if !defined(ADS_USE_CHILD_WIDGET_OVERLAY)
 #ifdef Q_OS_LINUX
 	setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::X11BypassWindowManagerHint);
 #else
 	setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
 #endif
 	setWindowOpacity(1);
-	setWindowTitle("DockOverlay");
 	setAttribute(Qt::WA_NoSystemBackground);
 	setAttribute(Qt::WA_TranslucentBackground);
+#endif
 
 	d->Cross->setVisible(false);
 	setVisible(false);
@@ -432,9 +435,30 @@ DockWidgetArea CDockOverlay::showOverlay(QWidget* target)
 
 	// Move it over the target.
 	resize(target->size());
-	QPoint TopLeft = target->mapToGlobal(target->rect().topLeft());
+
+#ifdef ADS_USE_CHILD_WIDGET_OVERLAY
+	QPoint TopLeft = QPoint(0, 0);
+
+	// TODO: redesign this stuff
+	if (d->Mode != CDockOverlay::ModeContainerOverlay)
+	{
+		const QPoint pt = target->mapToGlobal(QPoint(0, 0));
+
+		TopLeft = parentWidget() ? parentWidget()->mapFromGlobal(pt) : mapFromGlobal(pt);
+	}
+
 	move(TopLeft);
 	show();
+	raise();
+
+#else
+
+	const QPoint TopLeft = target->mapToGlobal(target->rect().topLeft());
+	move(TopLeft);
+	show();
+
+#endif
+
 	d->Cross->updatePosition();
 	d->Cross->updateOverlayIcons();
 	return dropAreaUnderCursor();
@@ -518,6 +542,11 @@ QRect CDockOverlay::dropOverlayRect() const
 void CDockOverlay::showEvent(QShowEvent* e)
 {
 	d->Cross->show();
+
+#ifdef ADS_USE_CHILD_WIDGET_OVERLAY
+	d->Cross->raise();
+#endif
+
 	QFrame::showEvent(e);
 }
 
@@ -590,17 +619,26 @@ QPoint DockOverlayCrossPrivate::areaGridPosition(const DockWidgetArea area)
 
 //============================================================================
 CDockOverlayCross::CDockOverlayCross(CDockOverlay* overlay) :
+#ifdef ADS_USE_CHILD_WIDGET_OVERLAY
+	QWidget(overlay),
+#else
 	QWidget(overlay->parentWidget()),
+#endif
 	d(new DockOverlayCrossPrivate(this))
 {
 	d->DockOverlay = overlay;
+	setWindowTitle("DockOverlayCross");
+
+#if !defined(ADS_USE_CHILD_WIDGET_OVERLAY)
+
 #ifdef Q_OS_LINUX
 	setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::X11BypassWindowManagerHint);
 #else
 	setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
 #endif
-	setWindowTitle("DockOverlayCross");
 	setAttribute(Qt::WA_TranslucentBackground);
+
+#endif
 
 	d->GridLayout = new QGridLayout();
 	d->GridLayout->setSpacing(0);
@@ -639,9 +677,12 @@ void CDockOverlayCross::setupOverlayCross(CDockOverlay::eMode Mode)
 //============================================================================
 void CDockOverlayCross::updateOverlayIcons()
 {
-	if (windowHandle()->devicePixelRatio() == d->LastDevicePixelRatio)
+	if (windowHandle())
 	{
-		return;
+		if (windowHandle()->devicePixelRatio() == d->LastDevicePixelRatio)
+		{
+			return;
+		}
 	}
 
 	for (auto Widget : d->DropIndicatorWidgets)
@@ -766,11 +807,22 @@ void CDockOverlayCross::showEvent(QShowEvent*)
 void CDockOverlayCross::updatePosition()
 {
 	resize(d->DockOverlay->size());
-	QPoint TopLeft = d->DockOverlay->pos();
-	QPoint Offest((this->width() - d->DockOverlay->width()) / 2,
+
+#ifdef ADS_USE_CHILD_WIDGET_OVERLAY
+
+	move(QPoint(
+			(width()  - d->DockOverlay->width())  / 2,
+			(height() - d->DockOverlay->height()) / 2));
+
+#else
+
+	const QPoint TopLeft = d->DockOverlay->pos();
+	const QPoint Offest((this->width() - d->DockOverlay->width()) / 2,
 		(this->height() - d->DockOverlay->height()) / 2);
-	QPoint CrossTopLeft = TopLeft - Offest;
+	const QPoint CrossTopLeft = TopLeft - Offest;
 	move(CrossTopLeft);
+
+#endif
 }
 
 

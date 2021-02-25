@@ -549,6 +549,14 @@ void FloatingDockContainerPrivate::updateDropOverlays(const QPoint &GlobalPos)
 		return;
 	}
 
+#ifdef ADS_USE_CHILD_WIDGET_OVERLAY
+    // Reparent overlay widgets. Because the overlay widget's parent is
+    // the corresponding top level window (indirectly) then it should
+    // be reparented when we try to dock into another top level window.
+    ContainerOverlay->setParent(TopContainer);
+    DockAreaOverlay->setParent(TopContainer);
+#endif
+
 	int VisibleDockAreas = TopContainer->visibleDockAreaCount();
 	ContainerOverlay->setAllowedAreas(
 	    VisibleDockAreas > 1 ? OuterDockAreas : AllDockAreas);
