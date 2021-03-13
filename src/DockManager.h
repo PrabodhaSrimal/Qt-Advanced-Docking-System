@@ -119,6 +119,29 @@ protected:
 	 */
 	CDockOverlay* dockAreaOverlay() const;
 
+    /**
+     * Calling proper constructor for dockAreaOverlay
+     */
+    void createNewDockAreaOverlay();
+
+    /**
+     * Calling proper constructor for containerOverlay
+     */
+    void createNewContainerOverlay();
+
+#ifdef ADS_USE_CHILD_WIDGET_OVERLAY
+
+    /**
+     * Connects to containerOverlay's destroy signal to create new Overlay after destruction
+     */
+    void connectToContainerOverlay();
+
+    /**
+     * Connects to dockAreaOverlay`s destroy signal to create new Overlay after destruction
+     */
+    void connectToDockAreaOverlay();
+
+#endif
 
 	/**
 	 * A container needs to call this function if a widget has been dropped

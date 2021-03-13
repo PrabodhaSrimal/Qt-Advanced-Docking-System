@@ -487,10 +487,17 @@ CDockManager::CDockManager(QWidget *parent) :
 	}
 
 	d->ViewMenu = new QMenu(tr("Show View"), this);
-	d->DockAreaOverlay = new CDockOverlay(this, CDockOverlay::ModeDockAreaOverlay);
-	d->ContainerOverlay = new CDockOverlay(this, CDockOverlay::ModeContainerOverlay);
-	d->Containers.append(this);
+    createNewDockAreaOverlay();
+    createNewContainerOverlay();
+    d->Containers.append(this);
 	d->loadStylesheet();
+
+#ifdef ADS_USE_CHILD_WIDGET_OVERLAY
+    //needed because of parenting FloatingDockContainerPrivate::updateDropOverlays to other object
+    //to keep DockManager up-to-date when Overlays are destructing
+    connectToDockAreaOverlay();
+    connectToContainerOverlay();
+#endif
 
 	if (CDockManager::testConfigFlag(CDockManager::FocusHighlighting))
 	{
@@ -500,6 +507,36 @@ CDockManager::CDockManager(QWidget *parent) :
 #ifdef Q_OS_LINUX
 	window()->installEventFilter(this);
 #endif
+}
+
+#ifdef ADS_USE_CHILD_WIDGET_OVERLAY
+
+void CDockManager::connectToDockAreaOverlay()
+{
+    connect(d->DockAreaOverlay, &CDockOverlay::destroyed, this, [this]() {
+        createNewDockAreaOverlay();
+        connectToDockAreaOverlay();
+    });
+}
+
+void CDockManager::connectToContainerOverlay()
+{
+    connect(d->ContainerOverlay, &CDockOverlay::destroyed, this, [this]() {
+        createNewContainerOverlay();
+        connectToContainerOverlay();
+    });
+}
+
+#endif
+
+void CDockManager::createNewContainerOverlay()
+{
+    d->ContainerOverlay = new CDockOverlay(this, CDockOverlay::ModeContainerOverlay);
+}
+
+void CDockManager::createNewDockAreaOverlay()
+{
+    d->DockAreaOverlay = new CDockOverlay(this, CDockOverlay::ModeDockAreaOverlay);
 }
 
 //============================================================================
